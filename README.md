@@ -17,9 +17,9 @@ Create a `JSON` formatted config file and place it in the `config` directory.
 
 The config file must follow the following format:
 
-```json
+```jsonc
 {
-    "hostname": "HOSTNAME", // Hostname to ping
+    "hostname": "HOSTNAME",
     "timeout": TIMEOUT, // Timeout of each request in MILLISECONDS
     "interval" TIMEOUT, // Interval for each request in MILLISECONDS
     "duration": {
@@ -51,7 +51,7 @@ Example (used as default config):
 Then, Run:
 
 ```bash
-$ npm start --config <your_config_name>
+$ npm start --config <path/to/your/config/file>
 ```
 
 ## Supported Operating Systems
