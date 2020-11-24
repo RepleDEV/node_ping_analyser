@@ -3,14 +3,18 @@ import { ping } from "./modules/ping";
 import * as fs from "fs";
 import * as path from "path";
 import * as mkdirp from "mkdirp";
-import { Readable } from "stream";
 import { exec } from "child_process";
 import { getCurrent } from "./modules/date";
+import { OutputStream as OStream } from "./modules/outputstream";
+import { convert } from "./modules/converttocsv";
 
 const { promises: fsPromises } = fs;
 
 const { argv } = yargs(process.argv.slice(2)).options({
     config: { type: "string" },
+    C: { type: "string" },
+    c: { type: "string" },
+    convert: { type: "string" }
 });
 
 interface Config {
@@ -28,9 +32,21 @@ interface Config {
 
 (async () => {
     // First, check flags
-    if (!argv.config) {
-        console.log("Config file not specified! Exiting");
-        process.exit();
+
+    // Flags for converting output results to CSV format
+    if (argv.c) {
+        await convert(argv.c).catch(err => { throw err });
+        console.log("Converted!");
+        return;
+    } else if (argv.convert) {
+        await convert(argv.convert).catch(err => { throw err });
+        console.log("Converted!");
+        return;
+    }
+
+    if (!argv.config || !argv.C) {
+        console.log("Config file not specified! Exiting...");
+        return;
     }
 
     console.log("Starting ping...");
@@ -71,7 +87,7 @@ interface Config {
             : config.duration.cycles;
 
     console.log(
-        `Starting with configuration:\nHostname: ${config.hostname}\nTimeout: ${config.timeout}.\n`
+        `Starting with configuration:\nHostname: ${config.hostname}\nTimeout: ${config.timeout}ms.\nInterval: ${config.interval}.\n`
     );
 
     const currentDate = getCurrent("-");
@@ -120,66 +136,34 @@ interface Config {
     console.log("Output filename: %s, file path: %s", outFileName, outDirPath);
 
     // Create write stream
-    const write = new Readable({ encoding: "utf-8" });
-    const stream = fs.createWriteStream(outFilePath);
-    write._read = () => {}; // eslint-disable-line @typescript-eslint/no-empty-function
+    const oStream = new OStream(config.hostname, config.timeout, config.interval, config.size, config.duration, { outputVersion: 1 })
+    const wStream = fs.createWriteStream(outFilePath);
 
-    write.pipe(stream);
-
-    // Initialize file header
-    write.push(
-        [
-            "{",
-            // Additional (probably) useful information
-            `"date": "${currentDate}",`,
-            `"hostname": "${config.hostname}",`,
-            `"timeout": ${config.timeout},`,
-            `"size": ${config.size},`,
-            `"duration": ${JSON.stringify(config.duration || {})},`,
-            '"output": [',
-        ].join(" ")
-    );
+    oStream.pipe(wStream);
 
     let cycles = 0;
 
-    function writeOutput(ping: number) {
-        const date = new Date();
+    async function end() {
+        oStream.end();
 
-        // Get time as format: HH:MM:SS
-        const time = [
-            date.getHours(),
-            date.getMinutes(),
-            date.getSeconds(),
-        ].join(":");
-
-        write.push(
-            JSON.stringify({
-                ping: ping < 0 ? config.timeout : ping,
-                time: time,
-            })
-        );
-    }
-
-    function end() {
-        // Finish file footer
-        write.push("] }");
-        write.destroy();
-
-        // Format the file
-        exec(
-            `prettier --write ${outFilePath} --tab-width 4`,
-            (err, stdout, stderr) => {
-                if (err) console.log(err);
-                if (err) console.log(stderr);
-            }
-        );
+        await new Promise<number>((resolve, reject) => {
+            // Format the file
+            exec(
+                `prettier --write ${outFilePath} --tab-width 4`,
+                (err, stdout, stderr) => {
+                    if (err) console.log(err);
+                    if (err) console.log(stderr);
+                    resolve(1);
+                }
+            );
+        });
 
         console.log("Ping complete!");
 
         process.exit();
     }
 
-    process.on("SIGINT", end);
+    process.on("SIGINT", async () => { await end() });
 
     await new Promise((resolve, reject) => {
         let loop: number;
@@ -194,7 +178,7 @@ interface Config {
                 .then((p) => {
                     console.log(`Ping! Time: ${p}ms`);
 
-                    writeOutput(p < 0 ? config.timeout : p);
+                    oStream.write(p < 0 ? config.timeout : p);
                 })
                 .catch((err) => {
                     console.log(
@@ -202,7 +186,7 @@ interface Config {
                         err.message
                     );
 
-                    writeOutput(-1);
+                    oStream.write(-1);
                 });
 
             if (
@@ -212,11 +196,9 @@ interface Config {
             ) {
                 clearInterval(loop);
                 resolve(0);
-            } else {
-                write.push(",");
             }
         }, config.interval);
     });
 
-    end();
+    await end();
 })();
