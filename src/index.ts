@@ -5,12 +5,12 @@ import * as path from "path";
 import * as mkdirp from "mkdirp";
 import { Readable } from "stream";
 import { exec } from "child_process";
-import { resolve } from "path";
+import { getCurrent } from "./modules/date";
 
 const { promises: fsPromises } = fs;
 
 const { argv } = yargs(process.argv.slice(2)).options({
-    config: { type: "string", default: "default" },
+    config: { type: "string" },
 });
 
 interface Config {
@@ -26,25 +26,20 @@ interface Config {
     };
 }
 
-function getCurrentDate(split = "/"): string {
-    const today = new Date();
-    const dd = String(today.getDate()).padStart(2, "0");
-    const mm = String(today.getMonth() + 1).padStart(2, "0"); // January is 0!
-    const yyyy = today.getFullYear();
-
-    return [mm, dd, yyyy].join(split);
-}
-
 (async () => {
+    // First, check flags
+    if (!argv.config) {
+        console.log("Config file not specified! Exiting");
+        process.exit();
+    }
+
     console.log("Starting ping...");
 
     // Get config;
-    const configPath = path.resolve("config/");
-    const configName = argv.config;
+    const configPath = argv.config;
     const configString = await fsPromises.readFile(
         path.join(
-            configPath,
-            configName.endsWith(".json") ? configName : configName + ".json"
+            configPath.endsWith(".json") ? configPath : configPath + ".json"
         ),
         { encoding: "utf-8" }
     );
@@ -54,7 +49,7 @@ function getCurrentDate(split = "/"): string {
         return console.log("ERROR! Undefined hostname!");
     }
 
-    console.log("Read config file: %s", configName);
+    console.log("Successfully read config file: %s", configPath);
 
     if (!config.interval && !config.timeout)
         throw "Unspecified interval and timeout values!";
@@ -79,7 +74,7 @@ function getCurrentDate(split = "/"): string {
         `Starting with configuration:\nHostname: ${config.hostname}\nTimeout: ${config.timeout}.\n`
     );
 
-    const currentDate = getCurrentDate("-");
+    const currentDate = getCurrent("-");
 
     let finishTime: number;
     // If cycles is undefined
@@ -158,9 +153,33 @@ function getCurrentDate(split = "/"): string {
         ].join(":");
 
         write.push(
-            JSON.stringify({ ping: ping < 0 ? config.timeout : ping, time: time })
+            JSON.stringify({
+                ping: ping < 0 ? config.timeout : ping,
+                time: time,
+            })
         );
     }
+
+    function end() {
+        // Finish file footer
+        write.push("] }");
+        write.destroy();
+
+        // Format the file
+        exec(
+            `prettier --write ${outFilePath} --tab-width 4`,
+            (err, stdout, stderr) => {
+                if (err) console.log(err);
+                if (err) console.log(stderr);
+            }
+        );
+
+        console.log("Ping complete!");
+
+        process.exit();
+    }
+
+    process.on("SIGINT", end);
 
     await new Promise((resolve, reject) => {
         let loop: number;
@@ -171,15 +190,20 @@ function getCurrentDate(split = "/"): string {
             await ping(config.hostname, {
                 size: config.size,
                 timeout: config.timeout,
-            }).then(p => {
-                console.log(`Ping! Time: ${p}ms`);
+            })
+                .then((p) => {
+                    console.log(`Ping! Time: ${p}ms`);
 
-                writeOutput(p < 0 ? config.timeout : p);
-            }).catch((err) => {
-                console.log("Unexpected ping error! Error message: %s", err.message)
-                
-                writeOutput(-1);
-            });
+                    writeOutput(p < 0 ? config.timeout : p);
+                })
+                .catch((err) => {
+                    console.log(
+                        "Unexpected ping error! Error message: %s",
+                        err.message
+                    );
+
+                    writeOutput(-1);
+                });
 
             if (
                 (config.duration.cycles &&
@@ -187,25 +211,12 @@ function getCurrentDate(split = "/"): string {
                 Date.now() >= finishTime
             ) {
                 clearInterval(loop);
-                resolve();
+                resolve(0);
             } else {
                 write.push(",");
             }
         }, config.interval);
     });
 
-    // Finish file footer
-    write.push("] }");
-    write.destroy();
-
-    // Format the file
-    exec(
-        `prettier --write ${outFilePath} --tab-width 4`,
-        (err, stdout, stderr) => {
-            if (err) console.log(err);
-            if (err) console.log(stderr);
-        }
-    );
-
-    console.log("Ping complete!");
+    end();
 })();
