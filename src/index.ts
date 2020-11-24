@@ -12,8 +12,6 @@ const { promises: fsPromises } = fs;
 
 const { argv } = yargs(process.argv.slice(2)).options({
     config: { type: "string" },
-    C: { type: "string" },
-    c: { type: "string" },
     convert: { type: "string" }
 });
 
@@ -34,17 +32,13 @@ interface Config {
     // First, check flags
 
     // Flags for converting output results to CSV format
-    if (argv.c) {
-        await convert(argv.c).catch(err => { throw err });
-        console.log("Converted!");
-        return;
-    } else if (argv.convert) {
+    if (argv.convert) {
         await convert(argv.convert).catch(err => { throw err });
         console.log("Converted!");
         return;
     }
 
-    if (!argv.config || !argv.C) {
+    if (!argv.config) {
         console.log("Config file not specified! Exiting...");
         return;
     }
