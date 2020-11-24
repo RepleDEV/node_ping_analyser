@@ -30,7 +30,6 @@ The config file must follow the following format:
         "minute": MINUTES,
         "second": SECONDS
         // IF CYCLES AND TIME ARE BOTH SPECIFIED, THE FORMER (CYCLES) WILL BE USED.
-
     }
 }
 ```
