@@ -54,4 +54,4 @@ function convert(path: string): Promise<void> {
     });
 }
 
-export { convert };
+export { convert, checkIfFileExists };

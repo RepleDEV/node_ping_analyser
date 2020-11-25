@@ -6,7 +6,7 @@ import * as mkdirp from "mkdirp";
 import { exec } from "child_process";
 import { getCurrent } from "./modules/date";
 import { OutputStream as OStream } from "./modules/outputstream";
-import { convert } from "./modules/converttocsv";
+import { convert, checkIfFileExists } from "./modules/converttocsv";
 import chalk from "chalk";
 
 const { promises: fsPromises } = fs;
@@ -14,6 +14,7 @@ const { promises: fsPromises } = fs;
 const { argv } = yargs(process.argv.slice(2)).options({
     config: { type: "string" },
     convert: { type: "string" },
+    o: { type: "string" }
 });
 
 interface Config {
@@ -32,6 +33,11 @@ interface Config {
 (async () => {
     // First, check flags
 
+    if (!argv.o) {
+        console.log(chalk.red.bold("No output file specified!"));
+        return;
+    }
+
     // Flags for converting output results to CSV format
     if (argv.convert) {
         await convert(argv.convert).catch((err) => {
@@ -42,7 +48,7 @@ interface Config {
     }
 
     if (!argv.config) {
-        console.log("Config file not specified! Exiting...");
+        console.log(chalk.red.bold("Config file not specified! Exiting..."));
         return;
     }
 
@@ -85,7 +91,7 @@ interface Config {
 
     console.log(chalk.yellow.underline.bold("Starting with configuration:\n"));
     console.log(
-        `Hostname: ${config.hostname}\nTimeout: ${config.timeout}ms.\nInterval: ${config.interval}.\n`
+        `Hostname: ${config.hostname}\nTimeout: ${config.timeout}ms.\nInterval: ${config.interval}ms.\n`
     );
 
     const currentDate = getCurrent("-");
@@ -111,16 +117,21 @@ interface Config {
     }
 
     // Get output paths
-    const outDirPath = path.resolve("out/");
+    let outDirPath = path.resolve(argv.o).split("\\");
 
-    // Create the output folder if it doesn't exist
-    mkdirp.sync(outDirPath);
+    const stat = await fsPromises.lstat(outDirPath.join("\\"));
+    if (stat.isDirectory()) {
+        console.log(chalk.red.bold("Error! Output directory is not a file!"));
+        return ;
+    }
 
-    let outFileName = `output_${currentDate}`;
+    let outFileName = outDirPath[outDirPath.length - 1];
+    outFileName.endsWith(".json") ? outFileName = outFileName.substring(0, outFileName.length - 5) : outFileName;
+    outDirPath = outDirPath.splice(0, outDirPath.length - 1);
 
     // eslint-disable-next-line no-async-promise-executor
     const dupeNumber = await new Promise<number>(async (resolve, reject) => {
-        const files = (await fsPromises.readdir(outDirPath)).filter((val) => {
+        const files = (await fsPromises.readdir(outDirPath.join("\\"))).filter((val) => {
             return val.startsWith(outFileName);
         });
 
@@ -129,9 +140,9 @@ interface Config {
 
     if (dupeNumber > 0) outFileName += `_${dupeNumber}`;
 
-    const outFilePath = path.join(outDirPath, outFileName + ".json");
+    const outFilePath = path.join(outDirPath.join("\\"), outFileName.endsWith(".json") ? outFileName : outFileName + ".json");
 
-    console.log("Output filename: %s, file path: %s", outFileName, outDirPath);
+    console.log("Output filename: %s, file path: %s", outFileName, outDirPath.join("/"));
 
     // Create write stream
     const oStream = new OStream(
@@ -163,7 +174,7 @@ interface Config {
             );
         });
 
-        console.log("\nPing complete!");
+        console.log(chalk.bold.redBright("\nPing complete!"));
 
         process.exit();
     }
