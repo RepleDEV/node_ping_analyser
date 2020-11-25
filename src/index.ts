@@ -1,12 +1,13 @@
+#!/usr/bin/env node
+
 import yargs from "yargs";
 import { ping } from "./modules/ping";
 import * as fs from "fs";
 import * as path from "path";
-import * as mkdirp from "mkdirp";
 import { exec } from "child_process";
 import { getCurrent } from "./modules/date";
 import { OutputStream as OStream } from "./modules/outputstream";
-import { convert, checkIfFileExists } from "./modules/converttocsv";
+import { convert } from "./modules/converttocsv";
 import chalk from "chalk";
 
 const { promises: fsPromises } = fs;
