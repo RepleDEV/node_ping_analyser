@@ -14,7 +14,7 @@ const { promises: fsPromises } = fs;
 const { argv } = yargs(process.argv.slice(2)).options({
     config: { type: "string" },
     convert: { type: "string" },
-    o: { type: "string" }
+    o: { type: "string" },
 });
 
 interface Config {
@@ -122,27 +122,38 @@ interface Config {
     const stat = await fsPromises.lstat(outDirPath.join("\\"));
     if (stat.isDirectory()) {
         console.log(chalk.red.bold("Error! Output directory is not a file!"));
-        return ;
+        return;
     }
 
     let outFileName = outDirPath[outDirPath.length - 1];
-    outFileName.endsWith(".json") ? outFileName = outFileName.substring(0, outFileName.length - 5) : outFileName;
+    outFileName.endsWith(".json")
+        ? (outFileName = outFileName.substring(0, outFileName.length - 5))
+        : outFileName;
     outDirPath = outDirPath.splice(0, outDirPath.length - 1);
 
     // eslint-disable-next-line no-async-promise-executor
     const dupeNumber = await new Promise<number>(async (resolve, reject) => {
-        const files = (await fsPromises.readdir(outDirPath.join("\\"))).filter((val) => {
-            return val.startsWith(outFileName);
-        });
+        const files = (await fsPromises.readdir(outDirPath.join("\\"))).filter(
+            (val) => {
+                return val.startsWith(outFileName);
+            }
+        );
 
         resolve(files.length);
     });
 
     if (dupeNumber > 0) outFileName += `_${dupeNumber}`;
 
-    const outFilePath = path.join(outDirPath.join("\\"), outFileName.endsWith(".json") ? outFileName : outFileName + ".json");
+    const outFilePath = path.join(
+        outDirPath.join("\\"),
+        outFileName.endsWith(".json") ? outFileName : outFileName + ".json"
+    );
 
-    console.log("Output filename: %s, file path: %s", outFileName, outDirPath.join("/"));
+    console.log(
+        "Output filename: %s, file path: %s",
+        outFileName,
+        outDirPath.join("/")
+    );
 
     // Create write stream
     const oStream = new OStream(
