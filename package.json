@@ -1,6 +1,6 @@
 {
     "name": "node_ping_analyser",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "description": "Just a random ping/latency analyser for troubleshooting ping/latency issues with your connection.",
     "main": "./dist/index.js",
     "scripts": {
