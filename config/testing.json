@@ -1,7 +1,7 @@
 {
     "hostname": "google.com",
-    "timeout": 5000,
-    "interval": 5000,
+    "timeout": 10,
+    "interval": 10,
     "duration": {
         "cycles": 1
     }

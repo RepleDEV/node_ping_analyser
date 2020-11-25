@@ -50,7 +50,7 @@ class OutputStream {
             date.getMinutes(),
             date.getSeconds(),
         ].join(":");
-        
+
         if (first) {
             first = false;
         } else {

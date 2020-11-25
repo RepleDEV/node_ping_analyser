@@ -7,12 +7,13 @@ import { exec } from "child_process";
 import { getCurrent } from "./modules/date";
 import { OutputStream as OStream } from "./modules/outputstream";
 import { convert } from "./modules/converttocsv";
+import chalk from "chalk";
 
 const { promises: fsPromises } = fs;
 
 const { argv } = yargs(process.argv.slice(2)).options({
     config: { type: "string" },
-    convert: { type: "string" }
+    convert: { type: "string" },
 });
 
 interface Config {
@@ -33,7 +34,9 @@ interface Config {
 
     // Flags for converting output results to CSV format
     if (argv.convert) {
-        await convert(argv.convert).catch(err => { throw err });
+        await convert(argv.convert).catch((err) => {
+            throw err;
+        });
         console.log("Converted!");
         return;
     }
@@ -43,7 +46,7 @@ interface Config {
         return;
     }
 
-    console.log("Starting ping...");
+    console.log(chalk.bold.red("Starting ping...\n"));
 
     // Get config;
     const configPath = argv.config;
@@ -59,7 +62,7 @@ interface Config {
         return console.log("ERROR! Undefined hostname!");
     }
 
-    console.log("Successfully read config file: %s", configPath);
+    console.log("Successfully read config file: %s\n", chalk.cyan(configPath));
 
     if (!config.interval && !config.timeout)
         throw "Unspecified interval and timeout values!";
@@ -80,8 +83,9 @@ interface Config {
             ? 1
             : config.duration.cycles;
 
+    console.log(chalk.yellow.underline.bold("Starting with configuration:\n"));
     console.log(
-        `Starting with configuration:\nHostname: ${config.hostname}\nTimeout: ${config.timeout}ms.\nInterval: ${config.interval}.\n`
+        `Hostname: ${config.hostname}\nTimeout: ${config.timeout}ms.\nInterval: ${config.interval}.\n`
     );
 
     const currentDate = getCurrent("-");
@@ -130,7 +134,14 @@ interface Config {
     console.log("Output filename: %s, file path: %s", outFileName, outDirPath);
 
     // Create write stream
-    const oStream = new OStream(config.hostname, config.timeout, config.interval, config.size, config.duration, { outputVersion: 1 })
+    const oStream = new OStream(
+        config.hostname,
+        config.timeout,
+        config.interval,
+        config.size,
+        config.duration,
+        { outputVersion: 1 }
+    );
     const wStream = fs.createWriteStream(outFilePath);
 
     oStream.pipe(wStream);
@@ -152,12 +163,14 @@ interface Config {
             );
         });
 
-        console.log("Ping complete!");
+        console.log("\nPing complete!");
 
         process.exit();
     }
 
-    process.on("SIGINT", async () => { await end() });
+    process.on("SIGINT", async () => {
+        await end();
+    });
 
     await new Promise((resolve, reject) => {
         let loop: number;
@@ -180,7 +193,7 @@ interface Config {
                         err.message
                     );
 
-                    oStream.write(-1);
+                    oStream.write(config.timeout);
                 });
 
             if (
