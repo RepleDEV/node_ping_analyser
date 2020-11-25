@@ -2,7 +2,7 @@
 
 ## 1.3.0 | 11/25/20
 
-Made output directory choosable using the `-o` flag. 
+Made output directory choosable using the `-o` flag.
 
 ## 1.2.1 | 11/25/20
 
