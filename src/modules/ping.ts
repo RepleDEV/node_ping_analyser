@@ -15,7 +15,7 @@ function ping(hostname: string, options?: PingOptions): Promise<number> {
         }
 
         exec(cmd.join(" "), (err, stdout, stderr) => {
-            if (err) reject(err);
+            if (err && !stdout.includes("Request timed out")) reject(err);
             if (stderr) reject(err);
 
             if (stdout.includes("Request timed out")) return resolve(-1);
